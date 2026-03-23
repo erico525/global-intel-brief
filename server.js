@@ -123,7 +123,7 @@ const server = http.createServer(async (req, res) => {
   // ── SERVE HTML ──
   if (url === '/' || url === '/index.html') {
     try {
-      const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+      const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
       return send(res, 200, 'text/html; charset=utf-8', html);
     } catch(e) {
       return send(res, 500, 'text/plain', 'Could not load index.html: ' + e.message);
