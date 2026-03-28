@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 3000;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || 'changeme';
 
-// Session store — simple in-memory token map
 const sessions = new Map();
 
 function generateToken() {
@@ -39,13 +38,13 @@ function setCookie(res, token) {
 }
 
 function send(res, status, contentType, body) {
-  res.writeHead(status, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(status, { 'Content-Type': contentType });
   res.end(body);
 }
 
-function proxyToAnthropic(body) {
+function callAnthropic(requestBody) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
+    const payload = JSON.stringify(requestBody);
     const options = {
       hostname: 'api.anthropic.com',
       path: '/v1/messages',
@@ -68,10 +67,62 @@ function proxyToAnthropic(body) {
   });
 }
 
+async function runAgenticBrief(userPrompt) {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const systemPrompt = `You are a senior intelligence analyst producing a daily executive brief for ${dateStr}.
+Search the web to find TODAY'S actual breaking news, current geopolitical events, active CVEs from CISA KEV, and live market prices.
+After gathering current intelligence via web search, return ONLY a valid JSON object. No markdown, no code fences. Start your response with { and end with }.`;
+
+  const messages = [{ role: 'user', content: userPrompt }];
+  let requestBody = {
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: 8000,
+    system: systemPrompt,
+    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+    messages: messages
+  };
+
+  for (let turn = 0; turn < 15; turn++) {
+    const result = await callAnthropic(requestBody);
+    if (result.status !== 200) {
+      const errBody = JSON.parse(result.body);
+      throw new Error(errBody.error ? errBody.error.message : 'API error ' + result.status);
+    }
+    const response = JSON.parse(result.body);
+    messages.push({ role: 'assistant', content: response.content });
+
+    const hasToolUse = response.content.some(b => b.type === 'tool_use');
+
+    if (!hasToolUse) {
+      const textBlocks = response.content.filter(b => b.type === 'text');
+      const rawText = textBlocks.map(b => b.text).join('');
+      const start = rawText.indexOf('{');
+      const end = rawText.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON found in response');
+      return JSON.parse(rawText.slice(start, end + 1));
+    }
+
+    // Build tool results from web search responses
+    const toolResults = response.content
+      .filter(b => b.type === 'tool_use')
+      .map(b => ({
+        type: 'tool_result',
+        tool_use_id: b.id,
+        content: JSON.stringify(b.content || b.input || '')
+      }));
+
+    messages.push({ role: 'user', content: toolResults });
+    requestBody.messages = messages;
+  }
+
+  throw new Error('Max turns reached');
+}
+
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
@@ -81,13 +132,11 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // ── LOGIN endpoint ──
   if (url === '/api/login' && req.method === 'POST') {
     const body = await parseBody(req);
     if (body.password === ACCESS_PASSWORD) {
       const token = generateToken();
       sessions.set(token, { created: Date.now() });
-      // Clean old sessions (> 24h)
       for (const [k, v] of sessions.entries()) {
         if (Date.now() - v.created > 86400000) sessions.delete(k);
       }
@@ -97,30 +146,24 @@ const server = http.createServer(async (req, res) => {
     return send(res, 401, 'application/json', JSON.stringify({ ok: false, error: 'Invalid password' }));
   }
 
-  // ── CHECK AUTH endpoint ──
   if (url === '/api/auth-check' && req.method === 'GET') {
     return send(res, 200, 'application/json', JSON.stringify({ authenticated: isAuthenticated(req) }));
   }
 
-  // ── ANTHROPIC PROXY endpoint ──
   if (url === '/api/brief' && req.method === 'POST') {
     if (!isAuthenticated(req)) {
       return send(res, 401, 'application/json', JSON.stringify({ error: 'Unauthorized' }));
     }
     try {
       const body = await parseBody(req);
-      const result = await proxyToAnthropic(body);
-      res.writeHead(result.status, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      });
-      return res.end(result.body);
+      const data = await runAgenticBrief(body.prompt || '');
+      return send(res, 200, 'application/json', JSON.stringify(data));
     } catch(e) {
+      console.error('Brief error:', e.message);
       return send(res, 500, 'application/json', JSON.stringify({ error: e.message }));
     }
   }
 
-  // ── SERVE HTML ──
   if (url === '/' || url === '/index.html') {
     try {
       const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
@@ -134,6 +177,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`GIB Server running on port ${PORT}`);
-  console.log(`Password protection: ${ACCESS_PASSWORD !== 'changeme' ? 'ENABLED' : 'WARNING: using default password'}`);
+  console.log('GIB Server running on port ' + PORT);
+  console.log('API Key: ' + (ANTHROPIC_API_KEY ? 'SET' : 'MISSING'));
+  console.log('Password: ' + (ACCESS_PASSWORD !== 'changeme' ? 'CUSTOM' : 'DEFAULT - please change'));
 });
