@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Intelligence Brief</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0a1628; --navy-mid:#112240; --navy-light:#1a3257;
+  --gold:#c9a84c; --gold-light:#e2c87a; --gold-dim:#8a6e2f;
+  --critical:#c0392b; --critical-bg:#2c0e0e;
+  --high:#e67e22; --high-bg:#2c1a08;
+  --watch:#2980b9; --watch-bg:#091c2c;
+  --medium:#27ae60; --medium-bg:#0a1f12;
+  --text:#d4dae8; --text-dim:#8a95a8;
+  --border:#1e3a5f; --border-gold:#3a2e14;
+  --analyst-bg:#0d1f3a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--navy);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;line-height:1.5;min-height:100vh;}
+
+/* KEY GATE */
+#key-gate{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:2000;}
+#key-gate.hidden{display:none;}
+.gate-box{width:440px;border:1px solid var(--border-gold);border-top:3px solid var(--gold);background:var(--navy-mid);padding:32px 36px;}
+.gate-brand{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.18em;color:var(--gold);margin-bottom:6px;}
+.gate-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.08em;margin-bottom:28px;}
+.gate-label{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.15em;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;}
+.gate-input-wrap{position:relative;margin-bottom:6px;}
+.gate-input{width:100%;background:var(--navy);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:10px 40px 10px 12px;outline:none;border-radius:2px;transition:border-color 0.15s;}
+.gate-input:focus{border-color:var(--gold);}
+.gate-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-dim);font-size:13px;user-select:none;}
+.gate-error{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e74c3c;margin-bottom:12px;min-height:16px;}
+.gate-btn{width:100%;background:var(--gold);border:none;color:var(--navy);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;padding:12px;cursor:pointer;border-radius:2px;transition:background 0.15s;}
+.gate-btn:hover{background:var(--gold-light);}
+.gate-note{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);line-height:1.7;}
+.gate-link{color:var(--gold);}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--navy);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1500;}
+#loading.active{display:flex;}
+.load-title{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold);letter-spacing:0.2em;text-transform:uppercase;}
+.load-bar-wrap{width:300px;height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+.load-bar{height:100%;background:var(--gold);width:0%;transition:width 0.4s ease;}
+.load-status{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.1em;}
+
+/* TOOLBAR */
+.toolbar{background:var(--navy-mid);border-bottom:1px solid var(--border-gold);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.tb-brand{display:flex;align-items:center;gap:12px;}
+.tb-logo{width:28px;height:28px;border:1.5px solid var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;}
+.tb-title{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.12em;text-transform:uppercase;}
+.tb-date{font-size:10px;color:var(--text-dim);letter-spacing:0.05em;}
+.tb-right{display:flex;align-items:center;gap:12px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#27ae60;animation:pulse-dot 2s infinite;will-change:opacity;isolation:isolate;}
+@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.live-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:0.08em;display:flex;align-items:center;gap:6px;}
+.updated{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);}
+.btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;cursor:pointer;border-radius:3px;transition:border-color 0.15s,color 0.15s;text-transform:uppercase;}
+.btn:hover{border-color:var(--gold);color:var(--gold);}
+.btn-gold{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:600;}
+.btn-gold:hover{background:var(--gold-light);border-color:var(--gold-light);color:var(--navy);}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+/* PAGE */
+.page{max-width:1340px;margin:0 auto;padding:24px 24px 60px;}
+#report{display:none;}
+.err-banner{background:var(--critical-bg);border:1px solid var(--critical);color:#e74c3c;padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;margin-bottom:16px;display:none;border-radius:2px;}
+
+/* REPORT HEADER */
+.rpt-hdr{border:1px solid var(--border-gold);border-top:3px solid var(--gold);background:var(--navy-mid);padding:20px 28px;margin-bottom:16px;}
+.rpt-hdr-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.rpt-title{font-family:'Libre Baskerville',serif;font-size:26px;font-weight:700;color:#fff;letter-spacing:0.03em;}
+.rpt-right{text-align:right;}
+.rpt-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold);letter-spacing:0.08em;}
+.rpt-edition{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;}
+.sec-bar{display:flex;border-top:1px solid var(--border-gold);padding-top:12px;margin-top:12px;}
+.sec-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gold-dim);letter-spacing:0.1em;text-transform:uppercase;padding-right:16px;margin-right:16px;border-right:1px solid var(--border-gold);}
+.sec-tag:last-child{border-right:none;}
+
+/* GLOBAL RISK SCORE BANNER */
+.risk-banner{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:16px;overflow:hidden;}
+.risk-cell{background:var(--navy-mid);padding:14px 16px;text-align:center;}
+.risk-label{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;}
+.risk-score{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;}
+.risk-sublabel{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:4px;letter-spacing:0.05em;}
+.score-critical{color:#e74c3c;}
+.score-high{color:#e67e22;}
+.score-medium{color:#27ae60;}
+.score-watch{color:#3498db;}
+.score-low{color:#8a95a8;}
+
+/* SITUATION */
+.sit-wrap{background:var(--navy-mid);border:1px solid var(--border);border-left:3px solid var(--gold);margin-bottom:16px;}
+.sit-hdr{background:var(--navy-light);padding:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.12em;color:var(--gold);text-transform:uppercase;border-bottom:1px solid var(--border);}
+.sit-grid{display:grid;grid-template-columns:repeat(4,1fr);}
+.sit-item{padding:14px 16px;border-right:1px solid var(--border);}
+.sit-item:last-child{border-right:none;}
+.sit-lbl{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}
+.lbl-break{color:var(--critical);}
+.lbl-head{color:var(--gold);}
+.lbl-dipl{color:var(--watch);}
+.lbl-cyber{color:var(--high);}
+.sit-txt{font-size:11.5px;color:var(--text);line-height:1.5;}
+
+/* SECTION HEADER */
+.s-hdr{display:flex;align-items:center;gap:12px;margin:24px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border-gold);}
+.s-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--gold);background:var(--navy-mid);border:1px solid var(--gold-dim);padding:3px 8px;}
+.s-title{font-family:'Libre Baskerville',serif;font-size:15px;font-weight:700;color:#fff;}
+.s-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;margin-left:auto;}
+.s-score-pill{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.1em;padding:3px 10px;border-radius:2px;text-transform:uppercase;margin-left:8px;}
+
+/* SECTION META ROW */
+.sec-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:14px;overflow:hidden;}
+.meta-cell{background:var(--navy-mid);padding:12px 16px;}
+.meta-lbl{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:6px;}
+.meta-val{font-size:12px;color:var(--text);line-height:1.5;}
+.meta-actions{list-style:none;padding:0;}
+.meta-actions li{font-size:11.5px;color:var(--text);padding:2px 0;padding-left:14px;position:relative;line-height:1.45;}
+.meta-actions li::before{content:'→';position:absolute;left:0;color:var(--gold);font-size:10px;}
+.region-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}
+.rtag{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.08em;padding:2px 8px;border-radius:2px;text-transform:uppercase;}
+.rtag-us{background:#0d1f3a;color:#5b9bd5;border:1px solid #1e3a5f;}
+.rtag-eu{background:#1a1a0a;color:#c9a84c;border:1px solid #3a3210;}
+.rtag-apac{background:#0a1f12;color:#4db87a;border:1px solid #0f3318;}
+.rtag-global{background:#1a0d0d;color:#e06c6c;border:1px solid #3a1010;}
+
+/* TABLE */
+.itbl{width:100%;border-collapse:collapse;margin-bottom:14px;border:1px solid var(--border);}
+.itbl thead tr{background:var(--navy-light);border-bottom:1px solid var(--border-gold);}
+.itbl th{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold-dim);padding:8px 12px;text-align:left;border-right:1px solid var(--border);}
+.itbl th:last-child{border-right:none;}
+.itbl tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
+.itbl tbody tr:last-child{border-bottom:none;}
+.itbl tbody tr:hover{background:rgba(255,255,255,0.02);}
+.itbl td{padding:10px 12px;vertical-align:top;border-right:1px solid var(--border);font-size:12px;line-height:1.5;}
+.itbl td:last-child{border-right:none;}
+.t-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text-dim);}
+.t-title{font-weight:600;color:#fff;}
+.t-body{color:var(--text);}
+.t-actor{font-weight:600;color:#e2c87a;}
+.t-dim{color:var(--text-dim);}
+.t-price{font-family:'IBM Plex Mono',monospace;color:#e2c87a;}
+.t-impact{font-size:11px;color:#e2a87a;font-style:italic;}
+
+/* BADGE */
+.badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.1em;padding:2px 7px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
+.b-critical{background:var(--critical-bg);color:#e74c3c;border:1px solid #4a1010;}
+.b-high{background:var(--high-bg);color:#e67e22;border:1px solid #4a2a08;}
+.b-medium{background:var(--medium-bg);color:#27ae60;border:1px solid #0a3018;}
+.b-watch{background:var(--watch-bg);color:#3498db;border:1px solid #0a2540;}
+
+/* TREND */
+.t-up{color:#27ae60;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.t-down{color:#e74c3c;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.t-flat{color:var(--text-dim);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+
+/* THEMES */
+.themes{background:var(--navy-mid);border:1px solid var(--border);padding:14px 18px;margin-bottom:14px;}
+.theme-row{display:flex;gap:10px;margin-bottom:8px;font-size:12px;line-height:1.5;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.theme-row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.theme-bull{color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:2px;flex-shrink:0;}
+
+/* ANALYST NOTE */
+.analyst{background:var(--analyst-bg);border:1px solid var(--gold);border-left:3px solid var(--gold);padding:16px 18px;margin:14px 0;position:relative;}
+.analyst::before{content:'ANALYST NOTE';position:absolute;top:-8px;left:14px;background:var(--analyst-bg);padding:0 6px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.15em;color:var(--gold);}
+.analyst-title{font-family:'Libre Baskerville',serif;font-size:12.5px;font-weight:700;color:var(--gold-light);margin-bottom:8px;}
+.analyst-body{font-size:12px;font-style:italic;color:var(--text-dim);line-height:1.65;}
+
+/* FOOTER */
+.rpt-footer{margin-top:32px;padding-top:14px;border-top:1px solid var(--border-gold);display:flex;justify-content:space-between;align-items:flex-end;}
+.footer-src{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--text-dim);line-height:1.7;}
+.footer-cls{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:var(--gold-dim);letter-spacing:0.12em;text-align:right;}
+
+/* ── TABLET ── */
+@media(max-width:1000px){
+  .sit-grid{grid-template-columns:1fr 1fr;}
+  .sec-meta{grid-template-columns:1fr;}
+  .risk-banner{grid-template-columns:repeat(3,1fr);}
+  .rpt-hdr-top{flex-direction:column;gap:10px;}
+  .itbl th:nth-child(n+4),.itbl td:nth-child(n+4){display:none;}
+}
+
+/* ── MOBILE ── */
+@media(max-width:640px){
+  /* Gate */
+  .gate-box{width:calc(100vw - 32px);padding:24px 20px;}
+
+  /* Toolbar */
+  .toolbar{padding:8px 14px;flex-wrap:wrap;gap:6px;}
+  .tb-title{font-size:9px;letter-spacing:0.08em;}
+  .tb-date{display:none;}
+  .updated{display:none;}
+  .live-label span:not(.live-dot){display:none;}
+  .btn{padding:5px 8px;font-size:9px;}
+
+  /* Page */
+  .page{padding:12px 12px 40px;}
+
+  /* Report header */
+  .rpt-hdr{padding:14px 16px;}
+  .rpt-title{font-size:18px;}
+  .rpt-hdr-top{flex-direction:column;gap:8px;}
+  .rpt-right{text-align:left;}
+  .sec-bar{flex-wrap:wrap;gap:4px;}
+  .sec-tag{font-size:8px;padding-right:10px;margin-right:10px;}
+
+  /* Risk banner — 2 cols on mobile */
+  .risk-banner{grid-template-columns:1fr 1fr;}
+  .risk-cell{padding:10px 12px;}
+  .risk-score{font-size:16px;}
+  .risk-label{font-size:8px;}
+  .risk-sublabel{font-size:8px;}
+
+  /* Situation — stack to 1 col */
+  .sit-grid{grid-template-columns:1fr;}
+  .sit-item{border-right:none;border-bottom:1px solid var(--border);}
+  .sit-item:last-child{border-bottom:none;}
+
+  /* Section headers */
+  .s-hdr{flex-wrap:wrap;gap:8px;}
+  .s-title{font-size:13px;}
+  .s-sub{display:none;}
+  .s-score-pill{margin-left:0;}
+
+  /* Section meta — stack */
+  .sec-meta{grid-template-columns:1fr;}
+
+  /* HIDE TABLES — replace with cards */
+  .itbl{display:none;}
+
+  /* Mobile cards */
+  .m-cards{display:block;}
+  .m-card{background:var(--navy-mid);border:1px solid var(--border);border-left:3px solid var(--gold-dim);margin-bottom:10px;padding:12px 14px;border-radius:2px;}
+  .m-card-title{font-weight:600;color:#fff;font-size:13px;margin-bottom:4px;}
+  .m-card-body{color:var(--text);font-size:12px;line-height:1.5;margin-bottom:6px;}
+  .m-card-impact{color:#e2a87a;font-size:11px;font-style:italic;margin-bottom:6px;}
+  .m-card-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+  .m-card-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);}
+  .m-card-actor{font-weight:600;color:#e2c87a;font-size:12px;margin-bottom:3px;}
+  .m-card-price{font-family:'IBM Plex Mono',monospace;color:#e2c87a;font-size:13px;font-weight:600;}
+
+  /* Analyst note */
+  .analyst{padding:14px 14px 14px 16px;}
+  .analyst-title{font-size:12px;}
+  .analyst-body{font-size:11.5px;}
+
+  /* Themes */
+  .themes{padding:12px 14px;}
+  .theme-row{font-size:11.5px;}
+
+  /* Footer */
+  .rpt-footer{flex-direction:column;gap:10px;align-items:flex-start;}
+  .footer-cls{text-align:left;}
+}
+
+/* Cards hidden on desktop */
+@media(min-width:641px){.m-cards{display:none;}}
+</style>
+</head>
+<body>
+
+<!-- PASSWORD GATE -->
+<div id="key-gate">
+  <div class="gate-box">
+    <div class="gate-brand">GLOBAL INTELLIGENCE BRIEF</div>
+    <div class="gate-sub">EXECUTIVE EDITION — AUTHENTICATION REQUIRED</div>
+    <label class="gate-label">Access Password</label>
+    <div class="gate-input-wrap">
+      <input id="key-input" class="gate-input" type="password" placeholder="Enter access password..." autocomplete="off"/>
+      <span class="gate-eye" onclick="toggleEye()">👁</span>
+    </div>
+    <div class="gate-error" id="gate-err"></div>
+    <button class="gate-btn" onclick="submitKey()">Authenticate &amp; Load Brief</button>
+    <div class="gate-note">
+      Secured access — contact your administrator for the password.
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-title">Global Intelligence Brief</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+  <div class="load-status" id="load-status">INITIALIZING...</div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="tb-brand">
+    <div class="tb-logo">GIB</div>
+    <div>
+      <div class="tb-title">Global Intelligence Brief — Executive Edition</div>
+      <div class="tb-date" id="tb-date">—</div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div class="live-label"><div class="live-dot"></div>LIVE</div>
+    <div class="updated" id="tb-updated">—</div>
+    <button class="btn" onclick="doRefresh()">↻ Refresh</button>
+    <button class="btn btn-gold" id="dl-btn" onclick="downloadDocx()">↓ Download .docx</button>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div class="page">
+<div id="report">
+  <div class="err-banner" id="err-banner"></div>
+
+  <!-- Report Header -->
+  <div class="rpt-hdr">
+    <div class="rpt-hdr-top">
+      <div>
+        <div class="rpt-title">GLOBAL INTELLIGENCE BRIEF</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gold-dim);letter-spacing:0.1em;margin-top:4px;">EXECUTIVE EDITION — MULTI-ROLE DISTRIBUTION</div>
+      </div>
+      <div class="rpt-right">
+        <div class="rpt-date" id="rpt-date">—</div>
+        <div class="rpt-edition" id="rpt-edition">Daily Edition</div>
+      </div>
+    </div>
+    <div class="sec-bar">
+      <div class="sec-tag">01 Geopolitics</div>
+      <div class="sec-tag">02 Cybersecurity</div>
+      <div class="sec-tag">03 Markets</div>
+      <div class="sec-tag">04 Strategic Watch</div>
+      <div class="sec-tag">Risk Scores</div>
+      <div class="sec-tag">Business Impact</div>
+      <div class="sec-tag">Actions</div>
+      <div class="sec-tag">Regional</div>
+    </div>
+  </div>
+
+  <!-- Global Risk Score Banner -->
+  <div class="risk-banner" id="risk-banner"></div>
+
+  <!-- Situation Summary -->
+  <div class="sit-wrap">
+    <div class="sit-hdr">▐ SITUATION SUMMARY — EXECUTIVE SNAPSHOT</div>
+    <div class="sit-grid" id="sit-grid"></div>
+  </div>
+
+  <!-- 01 Geopolitics -->
+  <div class="s-hdr">
+    <div class="s-num">01</div>
+    <div class="s-title">Geopolitics &amp; Global Security</div>
+    <div class="s-score-pill badge" id="geo-score-pill"></div>
+    <div class="s-sub" id="geo-date">—</div>
+  </div>
+  <div class="sec-meta" id="geo-meta"></div>
+  <table class="itbl">
+    <thead><tr>
+      <th style="width:28px">#</th>
+      <th style="width:16%">Story</th>
+      <th>What You Need To Know</th>
+      <th style="width:16%">Business Impact</th>
+      <th style="width:80px">Region</th>
+    </tr></thead>
+    <tbody id="geo-body"></tbody>
+  </table>
+  <div class="m-cards" id="geo-cards"></div>
+  <div class="analyst" id="geo-analyst" style="display:none">
+    <div class="analyst-title" id="geo-atitle"></div>
+    <div class="analyst-body" id="geo-abody"></div>
+  </div>
+
+  <!-- 02 Cyber -->
+  <div class="s-hdr">
+    <div class="s-num">02</div>
+    <div class="s-title">Cybersecurity Threat Intelligence</div>
+    <div class="s-score-pill badge" id="cyber-score-pill"></div>
+    <div class="s-sub" id="cyber-date">—</div>
+  </div>
+  <div class="sec-meta" id="cyber-meta"></div>
+  <table class="itbl">
+    <thead><tr>
+      <th style="width:15%">Actor / Vector</th>
+      <th style="width:22%">Tactic</th>
+      <th style="width:16%">Target</th>
+      <th style="width:15%">Business Impact</th>
+      <th style="width:70px">Region</th>
+      <th style="width:70px">Level</th>
+    </tr></thead>
+    <tbody id="cyber-body"></tbody>
+  </table>
+  <div class="m-cards" id="cyber-cards"></div>
+  <div class="themes" id="cyber-themes"></div>
+  <div class="analyst" id="cyber-analyst" style="display:none">
+    <div class="analyst-title" id="cyber-atitle"></div>
+    <div class="analyst-body" id="cyber-abody"></div>
+  </div>
+
+  <!-- 03 Markets -->
+  <div class="s-hdr">
+    <div class="s-num">03</div>
+    <div class="s-title">Markets &amp; Economic Conditions</div>
+    <div class="s-score-pill badge" id="mkt-score-pill"></div>
+    <div class="s-sub" id="mkt-date">—</div>
+  </div>
+  <div class="sec-meta" id="mkt-meta"></div>
+  <table class="itbl">
+    <thead><tr>
+      <th style="width:18%">Asset / Index</th>
+      <th style="width:14%">Level / Price</th>
+      <th>Move / Context</th>
+      <th style="width:16%">Business Impact</th>
+      <th style="width:60px">Region</th>
+      <th style="width:50px">Trend</th>
+    </tr></thead>
+    <tbody id="mkt-body"></tbody>
+  </table>
+  <div class="m-cards" id="mkt-cards"></div>
+  <div class="themes" id="mkt-themes"></div>
+  <div class="analyst" id="mkt-analyst" style="display:none">
+    <div class="analyst-title" id="mkt-atitle"></div>
+    <div class="analyst-body" id="mkt-abody"></div>
+  </div>
+
+  <!-- 04 Watch -->
+  <div class="s-hdr">
+    <div class="s-num">04</div>
+    <div class="s-title">Strategic Watch List — Next 5 Days</div>
+    <div class="s-sub" id="watch-date">—</div>
+  </div>
+  <table class="itbl">
+    <thead><tr>
+      <th style="width:18%">Watch Item</th>
+      <th>Why It Matters</th>
+      <th style="width:16%">Business Impact</th>
+      <th style="width:70px">Region</th>
+      <th style="width:80px">Priority</th>
+    </tr></thead>
+    <tbody id="watch-body"></tbody>
+  </table>
+  <div class="m-cards" id="watch-cards"></div>
+  <div class="rpt-footer">
+    <div class="footer-src" id="footer-src">Sources: CISA KEV · Bloomberg · Reuters · AP · BBC · OSINT synthesis</div>
+    <div class="footer-cls">UNCLASSIFIED // FOR OFFICIAL USE ONLY<br><span id="footer-ed">Executive Edition</span></div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── PASSWORD GATE ──
+var briefData = null;
+
+function toggleEye(){
+  var i=document.getElementById('key-input');
+  i.type=i.type==='password'?'text':'password';
+}
+document.getElementById('key-input').addEventListener('keydown',function(e){if(e.key==='Enter')submitKey();});
+
+async function submitKey(){
+  var pw=document.getElementById('key-input').value.trim();
+  var err=document.getElementById('gate-err');
+  err.textContent='';
+  if(!pw){err.textContent='Please enter the access password.';return;}
+  try{
+    var resp=await fetch('/api/login',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({password:pw}),
+      credentials:'include'
+    });
+    var data=await resp.json();
+    if(data.ok){
+      document.getElementById('key-gate').classList.add('hidden');
+      startBrief();
+    } else {
+      err.textContent='Incorrect password. Please try again.';
+    }
+  }catch(e){
+    err.textContent='Connection error: '+e.message;
+  }
+}
+
+// Auto-check if session cookie still valid
+(async function(){
+  try{
+    var r=await fetch('/api/auth-check',{credentials:'include'});
+    var d=await r.json();
+    if(d.authenticated){
+      document.getElementById('key-gate').classList.add('hidden');
+      startBrief();
+    }
+  }catch(e){}
+})();
+
+
+// ── LOADER ──
+var MSGS=['AUTHENTICATING CREDENTIALS...','SCANNING OSINT FEEDS...','ASSESSING THREAT LANDSCAPE...','CALCULATING RISK SCORES...','BUILDING EXECUTIVE BRIEF...'];
+function showLoader(){
+  document.getElementById('loading').classList.add('active');
+  var bar=document.getElementById('load-bar'),st=document.getElementById('load-status'),i=0;
+  bar.style.width='0%';
+  var iv=setInterval(function(){
+    if(i<MSGS.length){st.textContent=MSGS[i];bar.style.width=((i+1)/MSGS.length*100)+'%';i++;}
+    else clearInterval(iv);
+  },400);
+}
+function hideLoader(){document.getElementById('loading').classList.remove('active');}
+
+// ── PROMPT ──
+function buildPrompt(){
+  var today=new Date();
+  var dateStr=today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  return 'You are a senior intelligence analyst producing a daily executive brief for a global C-suite audience including CEO, CISO, CFO, and Board members. Generate a comprehensive Global Intelligence Brief for '+dateStr+'.\n\nReturn ONLY a valid JSON object. Start with { and end with }. No markdown, no code fences, no preamble.\n\nSchema:\n{\n  "date": "'+dateStr+'",\n  "edition": "Executive Edition",\n  "global_risk": {\n    "overall": {"score":"CRITICAL|HIGH|MEDIUM|WATCH|LOW","label":"One sentence overall risk summary"},\n    "geopolitical": {"score":"CRITICAL|HIGH|MEDIUM|WATCH|LOW","label":"Brief label"},\n    "cyber": {"score":"CRITICAL|HIGH|MEDIUM|WATCH|LOW","label":"Brief label"},\n    "market": {"score":"CRITICAL|HIGH|MEDIUM|WATCH|LOW","label":"Brief label"},\n    "supply_chain": {"score":"CRITICAL|HIGH|MEDIUM|WATCH|LOW","label":"Brief label"}\n  },\n  "situation": {\n    "breaking": "Most urgent breaking development in 2 sentences",\n    "headline": "Lead geopolitical headline in 2 sentences",\n    "diplomacy": "Key diplomatic development in 2 sentences",\n    "cyber": "Top cyber threat in 2 sentences"\n  },\n  "geopolitics": {\n    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",\n    "business_impact_summary": "2 sentence summary of overall business impact of geopolitical conditions",\n    "actions": ["Priority action 1 for executive to delegate","Priority action 2","Priority action 3"],\n    "primary_regions": ["US","EU","APAC","GLOBAL"],\n    "stories": [\n      {"num":1,"title":"Title","body":"2-3 sentence summary","business_impact":"1 sentence revenue/ops/reputational impact","regions":["US","EU","APAC","GLOBAL"]}\n    ],\n    "analyst_title": "Analyst note title",\n    "analyst_body": "2-3 sentence strategic assessment for executive audience"\n  },\n  "cybersecurity": {\n    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",\n    "business_impact_summary": "2 sentence summary of overall cyber risk to business operations",\n    "actions": ["CISO priority action 1","Priority action 2","Priority action 3"],\n    "primary_regions": ["US","EU","APAC","GLOBAL"],\n    "threats": [\n      {"actor":"Name","tactic":"Method","target":"Sector","business_impact":"1 sentence financial/ops/reputational impact","regions":["US"],"level":"CRITICAL|HIGH|MEDIUM|WATCH"}\n    ],\n    "themes": ["Strategic theme sentence 1","Theme 2","Theme 3"],\n    "analyst_title": "Analyst note title",\n    "analyst_body": "2-3 sentence assessment"\n  },\n  "markets": {\n    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",\n    "business_impact_summary": "2 sentence summary of market conditions impact on business planning",\n    "actions": ["CFO/Board priority action 1","Priority action 2","Priority action 3"],\n    "primary_regions": ["US","EU","APAC","GLOBAL"],\n    "assets": [\n      {"name":"Asset","price":"$X","context":"1 sentence context","business_impact":"1 sentence impact on corporate planning/costs","regions":["GLOBAL"],"trend":"up|down|flat"}\n    ],\n    "signals": ["Key economic signal 1","Signal 2","Signal 3"],\n    "analyst_title": "Analyst note title",\n    "analyst_body": "2-3 sentence assessment"\n  },\n  "watchlist": [\n    {"item":"Watch item","why":"2 sentence explanation","business_impact":"1 sentence impact","regions":["US","EU"],"priority":"CRITICAL|HIGH|MEDIUM|WATCH"}\n  ],\n  "sources": "Reuters, AP, Bloomberg, CISA KEV, OSINT"\n}\n\nRequirements:\n- global_risk scores must reflect genuine current threat levels\n- Minimum 5 geopolitics stories, 6 cyber threats, 7 market assets, 7 watchlist items\n- business_impact fields must be specific: name dollar ranges, business functions, or reputational consequences — not generic\n- regions array must use only: "US", "EU", "APAC", "GLOBAL"\n- actions must be concrete and delegatable, not vague (bad: "monitor situation", good: "Direct CISO to audit all Oracle IAM deployments for CVE-2026-21992 by EOD")\n- Analyst notes should be written for a board-level reader: strategic, consequence-focused, no jargon\n- Base all content on your knowledge of current world events, active CVEs, and market conditions as of today';
+}
+
+// ── FETCH ──
+async function fetchBrief(){
+  var resp=await fetch('/api/brief',{
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    credentials:'include',
+    body:JSON.stringify({prompt:buildPrompt()})
+  });
+  if(resp.status===401){
+    document.getElementById('key-gate').classList.remove('hidden');
+    document.getElementById('report').style.display='none';
+    throw new Error('Session expired. Please log in again.');
+  }
+  if(!resp.ok){
+    var eb=await resp.text();
+    var em=eb;
+    try{em=JSON.parse(eb).error;}catch(e){}
+    throw new Error('Error: '+em);
+  }
+  return await resp.json();
+}
+
+// ── HELPERS ──
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function badge(lv){
+  var c={CRITICAL:'b-critical',HIGH:'b-high',MEDIUM:'b-medium',WATCH:'b-watch'}[lv]||'b-watch';
+  return '<span class="badge '+c+'">'+(lv||'WATCH')+'</span>';
+}
+function scoreCls(s){return{CRITICAL:'b-critical',HIGH:'b-high',MEDIUM:'b-medium',WATCH:'b-watch',LOW:''}[s]||'b-watch';}
+function scoreColor(s){return{CRITICAL:'score-critical',HIGH:'score-high',MEDIUM:'score-medium',WATCH:'score-watch',LOW:'score-low'}[s]||'score-watch';}
+function trend(t){
+  if(t==='up')return '<span class="t-up">▲</span>';
+  if(t==='down')return '<span class="t-down">▼</span>';
+  return '<span class="t-flat">—</span>';
+}
+function regionTags(arr){
+  if(!arr||!arr.length)return '';
+  return '<div class="region-tags">'+arr.map(function(r){
+    var c={US:'rtag-us',EU:'rtag-eu',APAC:'rtag-apac',GLOBAL:'rtag-global'}[r]||'rtag-us';
+    return '<span class="rtag '+c+'">'+esc(r)+'</span>';
+  }).join('')+'</div>';
+}
+function metaBlock(impact, actions, regions, id){
+  var actHtml=(actions||[]).map(function(a){return '<li>'+esc(a)+'</li>';}).join('');
+  document.getElementById(id).innerHTML=
+    '<div class="meta-cell"><div class="meta-lbl">Business Impact</div><div class="meta-val">'+esc(impact)+'</div></div>'+
+    '<div class="meta-cell"><div class="meta-lbl">Priority Actions</div><ul class="meta-actions">'+actHtml+'</ul></div>'+
+    '<div class="meta-cell"><div class="meta-lbl">Primary Regions</div>'+regionTags(regions)+'</div>';
+}
+
+// ── RENDER ──
+function render(d){
+  briefData=d;
+  var now=new Date();
+  var ts=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+
+  // Header
+  document.getElementById('rpt-date').textContent=d.date||'';
+  document.getElementById('rpt-edition').textContent=d.edition||'Executive Edition';
+  document.getElementById('tb-date').textContent=d.date||'';
+  document.getElementById('tb-updated').textContent='Updated '+ts;
+  document.getElementById('footer-ed').textContent=(d.edition||'Executive Edition')+' — Generated '+ts;
+  ['geo-date','cyber-date','mkt-date','watch-date'].forEach(function(id){document.getElementById(id).textContent=d.date||'';});
+
+  // Global Risk Banner
+  var gr=d.global_risk||{};
+  var riskItems=[
+    {key:'overall',label:'Overall Risk'},
+    {key:'geopolitical',label:'Geopolitical'},
+    {key:'cyber',label:'Cyber'},
+    {key:'market',label:'Market'},
+    {key:'supply_chain',label:'Supply Chain'}
+  ];
+  document.getElementById('risk-banner').innerHTML=riskItems.map(function(ri){
+    var rv=gr[ri.key]||{score:'WATCH',label:''};
+    return '<div class="risk-cell"><div class="risk-label">'+ri.label+'</div>'+
+      '<div class="risk-score '+scoreColor(rv.score)+'">'+esc(rv.score)+'</div>'+
+      '<div class="risk-sublabel">'+esc(rv.label)+'</div></div>';
+  }).join('');
+
+  // Situation
+  var s=d.situation||{};
+  document.getElementById('sit-grid').innerHTML=
+    sitItem('BREAKING','lbl-break',s.breaking)+
+    sitItem('HEADLINE','lbl-head',s.headline)+
+    sitItem('DIPLOMACY','lbl-dipl',s.diplomacy)+
+    sitItem('CYBER','lbl-cyber',s.cyber);
+
+  // Geopolitics
+  var geo=d.geopolitics||{};
+  var gp=document.getElementById('geo-score-pill');
+  gp.className='s-score-pill badge '+scoreCls(geo.risk_score);
+  gp.textContent=geo.risk_score||'';
+  metaBlock(geo.business_impact_summary,geo.actions,geo.primary_regions,'geo-meta');
+  document.getElementById('geo-body').innerHTML=(geo.stories||[]).map(function(st){
+    return '<tr><td class="t-num">'+esc(String(st.num))+'</td>'+
+      '<td class="t-title">'+esc(st.title)+'</td>'+
+      '<td class="t-body">'+esc(st.body)+'</td>'+
+      '<td class="t-impact">'+esc(st.business_impact)+'</td>'+
+      '<td>'+regionTags(st.regions)+'</td></tr>';
+  }).join('');
+  document.getElementById('geo-cards').innerHTML=(geo.stories||[]).map(function(st){
+    return '<div class="m-card">'+
+      '<div class="m-card-title">'+esc(String(st.num))+'. '+esc(st.title)+'</div>'+
+      '<div class="m-card-body">'+esc(st.body)+'</div>'+
+      '<div class="m-card-impact">'+esc(st.business_impact)+'</div>'+
+      '<div class="m-card-footer">'+regionTags(st.regions)+'</div>'+
+    '</div>';
+  }).join('');
+  if(geo.analyst_title){
+    document.getElementById('geo-analyst').style.display='';
+    document.getElementById('geo-atitle').textContent=geo.analyst_title;
+    document.getElementById('geo-abody').textContent=geo.analyst_body||'';
+  }
+
+  // Cybersecurity
+  var cy=d.cybersecurity||{};
+  var cp=document.getElementById('cyber-score-pill');
+  cp.className='s-score-pill badge '+scoreCls(cy.risk_score);
+  cp.textContent=cy.risk_score||'';
+  metaBlock(cy.business_impact_summary,cy.actions,cy.primary_regions,'cyber-meta');
+  document.getElementById('cyber-body').innerHTML=(cy.threats||[]).map(function(t){
+    return '<tr><td class="t-actor">'+esc(t.actor)+'</td>'+
+      '<td class="t-body">'+esc(t.tactic)+'</td>'+
+      '<td class="t-dim">'+esc(t.target)+'</td>'+
+      '<td class="t-impact">'+esc(t.business_impact)+'</td>'+
+      '<td>'+regionTags(t.regions)+'</td>'+
+      '<td>'+badge(t.level)+'</td></tr>';
+  }).join('');
+  document.getElementById('cyber-cards').innerHTML=(cy.threats||[]).map(function(t){
+    return '<div class="m-card">'+
+      '<div class="m-card-footer" style="margin-bottom:6px;padding-bottom:6px;margin-top:0;padding-top:0;border-top:none;border-bottom:1px solid var(--border);">'+
+        '<div class="m-card-actor">'+esc(t.actor)+'</div>'+badge(t.level)+
+      '</div>'+
+      '<div class="m-card-body">'+esc(t.tactic)+'</div>'+
+      '<div class="m-card-body" style="color:var(--text-dim);font-size:11px;margin-top:3px;">Target: '+esc(t.target)+'</div>'+
+      '<div class="m-card-impact" style="margin-top:6px;">'+esc(t.business_impact)+'</div>'+
+      '<div class="m-card-footer">'+regionTags(t.regions)+'</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('cyber-themes').innerHTML=(cy.themes||[]).map(function(th){
+    return '<div class="theme-row"><span class="theme-bull">▸</span><span>'+esc(th)+'</span></div>';
+  }).join('');
+  if(cy.analyst_title){
+    document.getElementById('cyber-analyst').style.display='';
+    document.getElementById('cyber-atitle').textContent=cy.analyst_title;
+    document.getElementById('cyber-abody').textContent=cy.analyst_body||'';
+  }
+
+  // Markets
+  var mk=d.markets||{};
+  var mp=document.getElementById('mkt-score-pill');
+  mp.className='s-score-pill badge '+scoreCls(mk.risk_score);
+  mp.textContent=mk.risk_score||'';
+  metaBlock(mk.business_impact_summary,mk.actions,mk.primary_regions,'mkt-meta');
+  document.getElementById('mkt-body').innerHTML=(mk.assets||[]).map(function(a){
+    return '<tr><td class="t-title">'+esc(a.name)+'</td>'+
+      '<td class="t-price">'+esc(a.price)+'</td>'+
+      '<td class="t-body">'+esc(a.context)+'</td>'+
+      '<td class="t-impact">'+esc(a.business_impact)+'</td>'+
+      '<td>'+regionTags(a.regions)+'</td>'+
+      '<td>'+trend(a.trend)+'</td></tr>';
+  }).join('');
+  document.getElementById('mkt-cards').innerHTML=(mk.assets||[]).map(function(a){
+    var ta=a.trend==='up'?'▲':a.trend==='down'?'▼':'—';
+    var tc=a.trend==='up'?'#27ae60':a.trend==='down'?'#e74c3c':'var(--text-dim)';
+    return '<div class="m-card">'+
+      '<div class="m-card-footer" style="margin-bottom:6px;padding-bottom:6px;margin-top:0;padding-top:0;border-top:none;border-bottom:1px solid var(--border);">'+
+        '<div class="m-card-title" style="font-size:13px;">'+esc(a.name)+'</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;">'+
+          '<span class="m-card-price">'+esc(a.price)+'</span>'+
+          '<span style="font-family:IBM Plex Mono,monospace;font-weight:600;color:'+tc+';">'+ta+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="m-card-body">'+esc(a.context)+'</div>'+
+      '<div class="m-card-impact" style="margin-top:6px;">'+esc(a.business_impact)+'</div>'+
+      '<div class="m-card-footer">'+regionTags(a.regions)+'</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('mkt-themes').innerHTML=(mk.signals||[]).map(function(sig){
+    return '<div class="theme-row"><span class="theme-bull">▸</span><span>'+esc(sig)+'</span></div>';
+  }).join('');
+  if(mk.analyst_title){
+    document.getElementById('mkt-analyst').style.display='';
+    document.getElementById('mkt-atitle').textContent=mk.analyst_title;
+    document.getElementById('mkt-abody').textContent=mk.analyst_body||'';
+  }
+
+  // Watchlist
+  document.getElementById('watch-body').innerHTML=(d.watchlist||[]).map(function(w){
+    return '<tr><td class="t-title">'+esc(w.item)+'</td>'+
+      '<td class="t-body">'+esc(w.why)+'</td>'+
+      '<td class="t-impact">'+esc(w.business_impact)+'</td>'+
+      '<td>'+regionTags(w.regions)+'</td>'+
+      '<td>'+badge(w.priority)+'</td></tr>';
+  }).join('');
+  document.getElementById('watch-cards').innerHTML=(d.watchlist||[]).map(function(w){
+    return '<div class="m-card">'+
+      '<div class="m-card-footer" style="margin-bottom:6px;padding-bottom:6px;margin-top:0;padding-top:0;border-top:none;border-bottom:1px solid var(--border);">'+
+        '<div class="m-card-title">'+esc(w.item)+'</div>'+badge(w.priority)+
+      '</div>'+
+      '<div class="m-card-body">'+esc(w.why)+'</div>'+
+      '<div class="m-card-impact" style="margin-top:6px;">'+esc(w.business_impact)+'</div>'+
+      '<div class="m-card-footer">'+regionTags(w.regions)+'</div>'+
+    '</div>';
+  }).join('');
+
+  if(d.sources)document.getElementById('footer-src').textContent='Sources: '+d.sources;
+  document.getElementById('report').style.display='block';
+}
+
+function sitItem(label,cls,text){
+  return '<div class="sit-item"><div class="sit-lbl '+cls+'">'+label+'</div><div class="sit-txt">'+esc(text||'—')+'</div></div>';
+}
+
+// ── START ──
+async function startBrief(){
+  showLoader();
+  try{
+    var data=await fetchBrief();
+    render(data);
+    hideLoader();
+    setInterval(doRefresh,30*60*1000);
+  }catch(e){
+    hideLoader();
+    document.getElementById('report').style.display='block';
+    showErr(e.message);
+  }
+}
+async function doRefresh(){
+  var btn=document.querySelector('.btn[onclick="doRefresh()"]');
+  if(btn){btn.textContent='⏳ Loading...';btn.disabled=true;}
+  showErr('');
+  try{
+    var data=await fetchBrief();
+    render(data);
+  }catch(e){
+    showErr(e.message);
+  }finally{
+    if(btn){btn.textContent='↻ Refresh';btn.disabled=false;}
+  }
+}
+function showErr(msg){
+  var el=document.getElementById('err-banner');
+  if(msg){el.textContent='⚠ '+msg;el.style.display='block';}
+  else el.style.display='none';
+}
+
+// ── DOCX ──
+async function downloadDocx(){
+  if(!briefData){alert('No brief loaded.');return;}
+  var btn=document.getElementById('dl-btn');
+  btn.textContent='⏳ Generating...';btn.disabled=true;
+  try{
+    var d=briefData;
+    var docxBlob = buildDocxBlob(d);
+    var url=URL.createObjectURL(docxBlob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='GlobalIntelBrief_Executive_'+(d.date||'Brief').replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  }catch(e){
+    console.error('DOCX error:',e);
+    alert('Download failed: '+e.message);
+  }finally{
+    btn.textContent='↓ Download .docx';btn.disabled=false;
+  }
+}
+
+function esc_xml(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&apos;');
+}
+
+function buildDocxBlob(d){
+  // Build .docx as a ZIP containing XML files
+  // Colors
+  var GOLD='C9A84C', NAVY='0A1628', WHITE='FFFFFF', LGRAY='D4DAE8', DGRAY='8A95A8';
+  var CRIT='C0392B', HIGH='E67E22', MED='27AE60', WATCH='2980B9';
+
+  function sc(lv){return{CRITICAL:CRIT,HIGH:HIGH,MEDIUM:MED,WATCH:WATCH,LOW:DGRAY}[lv]||WATCH;}
+  function sbg(lv){return{CRITICAL:'2C0E0E',HIGH:'2C1A08',MEDIUM:'0A1F12',WATCH:'091C2C',LOW:'1A1A1A'}[lv]||'091C2C';}
+
+  function run(text, opts){
+    opts=opts||{};
+    var rpr='<w:rPr>';
+    if(opts.bold) rpr+='<w:b/>';
+    if(opts.italic) rpr+='<w:i/>';
+    rpr+='<w:color w:val="'+(opts.color||LGRAY)+'"/>';
+    rpr+='<w:sz w:val="'+(opts.size||20)+'"/>';
+    rpr+='<w:szCs w:val="'+(opts.size||20)+'"/>';
+    rpr+='<w:rFonts w:ascii="'+(opts.mono?'Courier New':'Georgia')+'" w:hAnsi="'+(opts.mono?'Courier New':'Georgia')+'"/>';
+    rpr+='</w:rPr>';
+    return '<w:r>'+rpr+'<w:t xml:space="preserve">'+esc_xml(text)+'</w:t></w:r>';
+  }
+
+  function para(runs_html, opts){
+    opts=opts||{};
+    var ppr='<w:pPr>';
+    ppr+='<w:spacing w:before="'+(opts.before||0)+'" w:after="'+(opts.after||100)+'"/>';
+    if(opts.indent) ppr+='<w:ind w:left="'+opts.indent+'"/>';
+    if(opts.borderBottom) ppr+='<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="'+GOLD+'"/></w:pBdr>';
+    if(opts.borderTop) ppr+='<w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="'+GOLD+'"/></w:pBdr>';
+    if(opts.borderLeft) ppr+='<w:pBdr><w:left w:val="single" w:sz="12" w:space="6" w:color="'+GOLD+'"/></w:pBdr>';
+    ppr+='</w:pPr>';
+    return '<w:p>'+ppr+runs_html+'</w:p>';
+  }
+
+  function cell(text, width, opts){
+    opts=opts||{};
+    var bg=opts.bg||NAVY;
+    return '<w:tc>'+
+      '<w:tcPr>'+
+        '<w:tcW w:w="'+width+'" w:type="dxa"/>'+
+        '<w:shd w:val="clear" w:color="auto" w:fill="'+bg+'"/>'+
+        '<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>'+
+        '<w:tcBorders>'+
+          '<w:top w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+          '<w:left w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+          '<w:bottom w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+          '<w:right w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '</w:tcBorders>'+
+      '</w:tcPr>'+
+      '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr>'+
+        run(text, opts)+
+      '</w:p>'+
+    '</w:tc>';
+  }
+
+  function hdrCell(text, width){
+    return cell(text, width, {bold:true, mono:true, color:GOLD, bg:'112240', size:18});
+  }
+
+  function tableRow(cells_html){
+    return '<w:tr>'+cells_html+'</w:tr>';
+  }
+
+  function table(col_widths, rows_html){
+    var total = col_widths.reduce(function(a,b){return a+b;},0);
+    var grid = col_widths.map(function(w){return '<w:gridCol w:w="'+w+'"/>';}).join('');
+    return '<w:tbl>'+
+      '<w:tblPr>'+
+        '<w:tblStyle w:val="TableGrid"/>'+
+        '<w:tblW w:w="'+total+'" w:type="dxa"/>'+
+        '<w:tblBorders>'+
+          '<w:insideH w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+          '<w:insideV w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '</w:tblBorders>'+
+      '</w:tblPr>'+
+      '<w:tblGrid>'+grid+'</w:tblGrid>'+
+      rows_html+
+    '</w:tbl>';
+  }
+
+  function secHeader(num, title){
+    return para(
+      run(num+'  ',{bold:true,mono:true,color:GOLD,size:24})+
+      run(title.toUpperCase(),{bold:true,color:WHITE,size:26}),
+      {before:280,after:140,borderBottom:true}
+    );
+  }
+
+  function analystBlock(title, body){
+    return para(run('ANALYST NOTE \u2014 '+(title||''),{bold:true,color:GOLD,size:20}),{before:180,after:60,borderLeft:true,indent:360})+
+           para(run(body||'',{italic:true,color:DGRAY,size:19}),{before:0,after:180,borderLeft:true,indent:360});
+  }
+
+  function actionsBlock(impact, actions, regions){
+    var html = para(run('BUSINESS IMPACT',{bold:true,mono:true,color:GOLD,size:17})+run('  '+esc_xml(impact||''),{color:LGRAY,size:18}),{before:80,after:40,borderLeft:true,indent:240});
+    html += para(run('PRIORITY ACTIONS',{bold:true,mono:true,color:GOLD,size:17}),{before:40,after:20,borderLeft:true,indent:240});
+    (actions||[]).forEach(function(a,i){
+      html += para(run('  '+(i+1)+'. '+a,{color:LGRAY,size:18}),{before:0,after:20,borderLeft:true,indent:240});
+    });
+    html += para(run('REGIONS: '+(regions||[]).join(' | '),{bold:true,mono:true,color:GOLD,size:17}),{before:20,after:140,borderLeft:true,indent:240});
+    return html;
+  }
+
+  // Build document body
+  var gr = d.global_risk||{};
+  var body = '';
+
+  // Title block
+  body += para(run('GLOBAL INTELLIGENCE BRIEF',{bold:true,color:WHITE,size:40}),{before:0,after:60,borderTop:true});
+  body += para(run(d.date||'',{mono:true,color:GOLD,size:22}),{before:0,after:60});
+  body += para(run('EXECUTIVE EDITION \u2014 MULTI-ROLE DISTRIBUTION',{italic:true,color:DGRAY,size:18}),{before:0,after:200});
+
+  // Global Risk Table
+  body += para(run('GLOBAL RISK ASSESSMENT',{bold:true,mono:true,color:GOLD,size:20}),{before:80,after:80});
+  var riskItems=[{k:'overall',l:'OVERALL RISK'},{k:'geopolitical',l:'GEOPOLITICAL'},{k:'cyber',l:'CYBER'},{k:'market',l:'MARKET'},{k:'supply_chain',l:'SUPPLY CHAIN'}];
+  var riskRows = riskItems.map(function(ri){
+    var rv=gr[ri.k]||{score:'WATCH',label:''};
+    return tableRow(
+      cell(ri.l,1400,{bold:true,mono:true,color:GOLD,bg:'112240',size:17})+
+      cell(rv.score,900,{bold:true,mono:true,color:sc(rv.score),bg:sbg(rv.score),size:19})+
+      cell(rv.label||'',7060,{color:LGRAY,size:18})
+    );
+  }).join('');
+  body += table([1400,900,7060], riskRows);
+
+  // Situation
+  body += para(run('SITUATION SUMMARY',{bold:true,mono:true,color:GOLD,size:20}),{before:160,after:80});
+  var sit=d.situation||{};
+  var sitRows=[['BREAKING',sit.breaking],['HEADLINE',sit.headline],['DIPLOMACY',sit.diplomacy],['CYBER',sit.cyber]].map(function(r){
+    return tableRow(cell(r[0],1100,{bold:true,mono:true,color:GOLD,bg:'112240',size:17})+cell(r[1]||'',8260,{color:LGRAY,size:18}));
+  }).join('');
+  body += table([1100,8260], sitRows);
+
+  // Geopolitics
+  var geo=d.geopolitics||{};
+  body += secHeader('01','Geopolitics & Global Security');
+  body += actionsBlock(geo.business_impact_summary,geo.actions,geo.primary_regions);
+  var geoHdr = tableRow(hdrCell('#',300)+hdrCell('Story',1600)+hdrCell('What You Need To Know',4000)+hdrCell('Business Impact',1900)+hdrCell('Region',1560));
+  var geoRows = (geo.stories||[]).map(function(s){
+    return tableRow(
+      cell(String(s.num),300,{bold:true,mono:true,color:GOLD,size:17})+
+      cell(s.title,1600,{bold:true,color:WHITE,size:19})+
+      cell(s.body,4000,{color:LGRAY,size:18})+
+      cell(s.business_impact||'',1900,{italic:true,color:'E2A87A',size:17})+
+      cell((s.regions||[]).join(', '),1560,{mono:true,color:DGRAY,size:16})
+    );
+  }).join('');
+  body += table([300,1600,4000,1900,1560], geoHdr+geoRows);
+  body += analystBlock(geo.analyst_title,geo.analyst_body);
+
+  // Cybersecurity
+  var cy=d.cybersecurity||{};
+  body += secHeader('02','Cybersecurity Threat Intelligence');
+  body += actionsBlock(cy.business_impact_summary,cy.actions,cy.primary_regions);
+  var cyHdr = tableRow(hdrCell('Actor / Vector',1500)+hdrCell('Tactic',2200)+hdrCell('Target',1400)+hdrCell('Business Impact',1700)+hdrCell('Region',900)+hdrCell('Level',860));
+  var cyRows = (cy.threats||[]).map(function(t){
+    return tableRow(
+      cell(t.actor,1500,{bold:true,color:'E2C87A',size:18})+
+      cell(t.tactic,2200,{color:LGRAY,size:18})+
+      cell(t.target,1400,{color:DGRAY,size:17})+
+      cell(t.business_impact||'',1700,{italic:true,color:'E2A87A',size:17})+
+      cell((t.regions||[]).join(', '),900,{mono:true,color:DGRAY,size:16})+
+      cell(t.level,860,{bold:true,mono:true,color:sc(t.level),bg:sbg(t.level),size:17})
+    );
+  }).join('');
+  body += table([1500,2200,1400,1700,900,860], cyHdr+cyRows);
+  body += para(run('Strategic Cyber Themes',{bold:true,color:GOLD,size:20}),{before:120,after:60});
+  (cy.themes||[]).forEach(function(t){body+=para(run('\u25b8  '+t,{color:LGRAY,size:18}),{before:40,after:40,indent:360});});
+  body += analystBlock(cy.analyst_title,cy.analyst_body);
+
+  // Markets
+  var mk=d.markets||{};
+  body += secHeader('03','Markets & Economic Conditions');
+  body += actionsBlock(mk.business_impact_summary,mk.actions,mk.primary_regions);
+  var mktHdr = tableRow(hdrCell('Asset / Index',1800)+hdrCell('Level / Price',1300)+hdrCell('Move / Context',2800)+hdrCell('Business Impact',1700)+hdrCell('Region',900)+hdrCell('Trend',560));
+  var mktRows = (mk.assets||[]).map(function(a){
+    var ta=a.trend==='up'?'\u25b2':a.trend==='down'?'\u25bc':'\u2014';
+    var tc=a.trend==='up'?MED:a.trend==='down'?CRIT:DGRAY;
+    return tableRow(
+      cell(a.name,1800,{bold:true,color:WHITE,size:18})+
+      cell(a.price,1300,{mono:true,color:'E2C87A',size:18})+
+      cell(a.context,2800,{color:LGRAY,size:18})+
+      cell(a.business_impact||'',1700,{italic:true,color:'E2A87A',size:17})+
+      cell((a.regions||[]).join(', '),900,{mono:true,color:DGRAY,size:16})+
+      cell(ta,560,{bold:true,mono:true,color:tc,size:18})
+    );
+  }).join('');
+  body += table([1800,1300,2800,1700,900,560], mktHdr+mktRows);
+  body += para(run('Key Economic Signals',{bold:true,color:GOLD,size:20}),{before:120,after:60});
+  (mk.signals||[]).forEach(function(s){body+=para(run('\u25b8  '+s,{color:LGRAY,size:18}),{before:40,after:40,indent:360});});
+  body += analystBlock(mk.analyst_title,mk.analyst_body);
+
+  // Watchlist
+  body += secHeader('04','Strategic Watch List \u2014 Next 5 Days');
+  var wHdr = tableRow(hdrCell('Watch Item',1800)+hdrCell('Why It Matters',3600)+hdrCell('Business Impact',1800)+hdrCell('Region',900)+hdrCell('Priority',1260));
+  var wRows = (d.watchlist||[]).map(function(w){
+    return tableRow(
+      cell(w.item,1800,{bold:true,color:WHITE,size:18})+
+      cell(w.why,3600,{color:LGRAY,size:18})+
+      cell(w.business_impact||'',1800,{italic:true,color:'E2A87A',size:17})+
+      cell((w.regions||[]).join(', '),900,{mono:true,color:DGRAY,size:16})+
+      cell(w.priority,1260,{bold:true,mono:true,color:sc(w.priority),bg:sbg(w.priority),size:17})
+    );
+  }).join('');
+  body += table([1800,3600,1800,900,1260], wHdr+wRows);
+
+  // Footer
+  body += para(run('Sources: '+(d.sources||''),{mono:true,color:DGRAY,size:17}),{before:320,after:60,borderTop:true});
+  body += para(run('UNCLASSIFIED // FOR OFFICIAL USE ONLY \u2014 '+(d.edition||'Executive Edition'),{mono:true,color:DGRAY,size:17}),{before:0,after:0});
+
+  // Assemble full document XML
+  var documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" '+
+    'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '+
+    'xmlns:o="urn:schemas-microsoft-com:office:office" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '+
+    'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '+
+    'xmlns:v="urn:schemas-microsoft-com:vml" '+
+    'xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" '+
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '+
+    'xmlns:w10="urn:schemas-microsoft-com:office:word" '+
+    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '+
+    'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" '+
+    'xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" '+
+    'xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" '+
+    'xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" '+
+    'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="w14 wp14">'+
+    '<w:body>'+body+
+    '<w:sectPr>'+
+      '<w:pgSz w:w="12240" w:h="15840"/>'+
+      '<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>'+
+    '</w:sectPr>'+
+    '</w:body></w:document>';
+
+  var relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+
+    '</Relationships>';
+
+  var stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+
+    '<w:style w:type="table" w:styleId="TableGrid">'+
+      '<w:name w:val="Table Grid"/>'+
+      '<w:tblPr><w:tblBorders>'+
+        '<w:top w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '<w:left w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '<w:bottom w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '<w:right w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '<w:insideH w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+        '<w:insideV w:val="single" w:sz="1" w:color="1E3A5F"/>'+
+      '</w:tblBorders></w:tblPr>'+
+    '</w:style>'+
+    '</w:styles>';
+
+  var workbookRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'+
+    '</Relationships>';
+
+  var contentTypesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+    '<Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
+    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'+
+    '</Types>';
+
+  // Build ZIP using JSZip-compatible method - pure JS ZIP builder
+  var files = {
+    '[Content_Types].xml': contentTypesXml,
+    '_rels/.rels': workbookRelsXml,
+    'word/document.xml': documentXml,
+    'word/styles.xml': stylesXml,
+    'word/_rels/document.xml.rels': relsXml
+  };
+
+  return createZipBlob(files);
+}
+
+function createZipBlob(files){
+  // Pure JS ZIP implementation
+  var fileEntries = [];
+  var centralDir = [];
+  var offset = 0;
+
+  function strToBytes(str){
+    var bytes = [];
+    for(var i=0;i<str.length;i++){
+      var c=str.charCodeAt(i);
+      if(c<128){bytes.push(c);}
+      else if(c<2048){bytes.push(192|(c>>6));bytes.push(128|(c&63));}
+      else{bytes.push(224|(c>>12));bytes.push(128|((c>>6)&63));bytes.push(128|(c&63));}
+    }
+    return new Uint8Array(bytes);
+  }
+
+  function uint16LE(n){return[n&0xFF,(n>>8)&0xFF];}
+  function uint32LE(n){return[n&0xFF,(n>>8)&0xFF,(n>>16)&0xFF,(n>>24)&0xFF];}
+
+  function crc32(data){
+    var table=[];
+    for(var i=0;i<256;i++){var c=i;for(var j=0;j<8;j++)c=c&1?(0xEDB88320^(c>>>1)):c>>>1;table[i]=c;}
+    var crc=0xFFFFFFFF;
+    for(var k=0;k<data.length;k++)crc=table[(crc^data[k])&0xFF]^(crc>>>8);
+    return (crc^0xFFFFFFFF)>>>0;
+  }
+
+  function concat(arrays){
+    var total=0;
+    for(var i=0;i<arrays.length;i++)total+=arrays[i].length;
+    var out=new Uint8Array(total);
+    var pos=0;
+    for(var i=0;i<arrays.length;i++){out.set(arrays[i],pos);pos+=arrays[i].length;}
+    return out;
+  }
+
+  var names = Object.keys(files);
+  for(var fi=0;fi<names.length;fi++){
+    var name = names[fi];
+    var content = strToBytes(files[name]);
+    var nameBytes = strToBytes(name);
+    var crc = crc32(content);
+    var modTime = 0x0000, modDate = 0x0000;
+
+    var localHeader = concat([
+      new Uint8Array([0x50,0x4B,0x03,0x04]), // signature
+      new Uint8Array(uint16LE(20)),           // version needed
+      new Uint8Array(uint16LE(0)),            // flags
+      new Uint8Array(uint16LE(0)),            // compression (store)
+      new Uint8Array(uint16LE(modTime)),
+      new Uint8Array(uint16LE(modDate)),
+      new Uint8Array(uint32LE(crc)),
+      new Uint8Array(uint32LE(content.length)),
+      new Uint8Array(uint32LE(content.length)),
+      new Uint8Array(uint16LE(nameBytes.length)),
+      new Uint8Array(uint16LE(0)),            // extra length
+      nameBytes
+    ]);
+
+    fileEntries.push(concat([localHeader, content]));
+
+    var centralEntry = concat([
+      new Uint8Array([0x50,0x4B,0x01,0x02]), // central dir signature
+      new Uint8Array(uint16LE(20)),           // version made by
+      new Uint8Array(uint16LE(20)),           // version needed
+      new Uint8Array(uint16LE(0)),            // flags
+      new Uint8Array(uint16LE(0)),            // compression
+      new Uint8Array(uint16LE(modTime)),
+      new Uint8Array(uint16LE(modDate)),
+      new Uint8Array(uint32LE(crc)),
+      new Uint8Array(uint32LE(content.length)),
+      new Uint8Array(uint32LE(content.length)),
+      new Uint8Array(uint16LE(nameBytes.length)),
+      new Uint8Array(uint16LE(0)),            // extra
+      new Uint8Array(uint16LE(0)),            // comment
+      new Uint8Array(uint16LE(0)),            // disk start
+      new Uint8Array(uint16LE(0)),            // internal attr
+      new Uint8Array(uint32LE(0)),            // external attr
+      new Uint8Array(uint32LE(offset)),       // local header offset
+      nameBytes
+    ]);
+
+    centralDir.push(centralEntry);
+    offset += localHeader.length + content.length;
+  }
+
+  var centralDirData = concat(centralDir);
+  var eocd = concat([
+    new Uint8Array([0x50,0x4B,0x05,0x06]), // end of central dir
+    new Uint8Array(uint16LE(0)),            // disk number
+    new Uint8Array(uint16LE(0)),            // disk with central dir
+    new Uint8Array(uint16LE(names.length)),
+    new Uint8Array(uint16LE(names.length)),
+    new Uint8Array(uint32LE(centralDirData.length)),
+    new Uint8Array(uint32LE(offset)),
+    new Uint8Array(uint16LE(0))             // comment length
+  ]);
+
+  var zipData = concat(fileEntries.concat([centralDirData, eocd]));
+  return new Blob([zipData],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+
+</script>
+</body>
+</html>
