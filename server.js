@@ -54,7 +54,8 @@ function callAnthropic(requestBody) {
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
         'content-length': Buffer.byteLength(payload)
-      }
+      },
+      timeout: 55000
     };
     const req = https.request(options, res => {
       let data = '';
@@ -62,73 +63,88 @@ function callAnthropic(requestBody) {
       res.on('end', () => resolve({ status: res.statusCode, body: data }));
     });
     req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
     req.write(payload);
     req.end();
   });
 }
 
-async function runAgenticBrief(userPrompt) {
+async function generateBrief() {
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  const systemPrompt = `You are a senior intelligence analyst producing a daily executive brief for ${dateStr}.
-Search the web to find TODAY'S actual breaking news, current geopolitical events, active CVEs from CISA KEV, and live market prices.
-After gathering current intelligence via web search, return ONLY a valid JSON object. No markdown, no code fences. Start your response with { and end with }.`;
+  const prompt = `Generate a Global Intelligence Brief for ${dateStr}.
 
-  const messages = [{ role: 'user', content: userPrompt }];
-  let requestBody = {
+You are a senior intelligence analyst. Use your most current knowledge to produce today's brief.
+Return ONLY a valid JSON object. Start with { and end with }. No markdown, no code fences.
+
+Schema:
+{
+  "date": "${dateStr}",
+  "edition": "Daily Edition",
+  "global_risk": {
+    "overall": {"score":"CRITICAL|HIGH|MEDIUM|WATCH","label":"one sentence"},
+    "geopolitical": {"score":"CRITICAL|HIGH|MEDIUM|WATCH","label":"one sentence"},
+    "cyber": {"score":"CRITICAL|HIGH|MEDIUM|WATCH","label":"one sentence"},
+    "market": {"score":"CRITICAL|HIGH|MEDIUM|WATCH","label":"one sentence"},
+    "supply_chain": {"score":"CRITICAL|HIGH|MEDIUM|WATCH","label":"one sentence"}
+  },
+  "situation": {
+    "breaking": "2 sentences",
+    "headline": "2 sentences",
+    "diplomacy": "2 sentences",
+    "cyber": "2 sentences"
+  },
+  "geopolitics": {
+    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",
+    "stories": [{"num":1,"title":"string","body":"2-3 sentences"}],
+    "analyst_title": "string",
+    "analyst_body": "2-3 sentences"
+  },
+  "cybersecurity": {
+    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",
+    "threats": [{"actor":"string","tactic":"string","target":"string","level":"CRITICAL|HIGH|MEDIUM|WATCH"}],
+    "themes": ["string"],
+    "analyst_title": "string",
+    "analyst_body": "2-3 sentences"
+  },
+  "markets": {
+    "risk_score": "CRITICAL|HIGH|MEDIUM|WATCH",
+    "assets": [{"name":"string","price":"string","context":"1 sentence","trend":"up|down|flat"}],
+    "signals": ["string"],
+    "analyst_title": "string",
+    "analyst_body": "2-3 sentences"
+  },
+  "watchlist": [{"item":"string","why":"2 sentences","priority":"CRITICAL|HIGH|MEDIUM|WATCH"}],
+  "sources": "string"
+}
+
+Requirements: 5 geopolitics stories, 5 cyber threats, 7 market assets, 5 watchlist items. Use real current world events.`;
+
+  const result = await callAnthropic({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 8000,
-    system: systemPrompt,
-    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-    messages: messages
-  };
+    max_tokens: 6000,
+    messages: [{ role: 'user', content: prompt }]
+  });
 
-  for (let turn = 0; turn < 15; turn++) {
-    const result = await callAnthropic(requestBody);
-    if (result.status !== 200) {
-      const errBody = JSON.parse(result.body);
-      throw new Error(errBody.error ? errBody.error.message : 'API error ' + result.status);
-    }
-    const response = JSON.parse(result.body);
-    messages.push({ role: 'assistant', content: response.content });
-
-    const hasToolUse = response.content.some(b => b.type === 'tool_use');
-
-    if (!hasToolUse) {
-      const textBlocks = response.content.filter(b => b.type === 'text');
-      const rawText = textBlocks.map(b => b.text).join('');
-      const start = rawText.indexOf('{');
-      const end = rawText.lastIndexOf('}');
-      if (start === -1 || end === -1) throw new Error('No JSON found in response');
-      return JSON.parse(rawText.slice(start, end + 1));
-    }
-
-    // Build tool results from web search responses
-    const toolResults = response.content
-      .filter(b => b.type === 'tool_use')
-      .map(b => ({
-        type: 'tool_result',
-        tool_use_id: b.id,
-        content: JSON.stringify(b.content || b.input || '')
-      }));
-
-    messages.push({ role: 'user', content: toolResults });
-    requestBody.messages = messages;
+  if (result.status !== 200) {
+    const err = JSON.parse(result.body);
+    throw new Error(err.error ? err.error.message : 'API error ' + result.status);
   }
 
-  throw new Error('Max turns reached');
+  const response = JSON.parse(result.body);
+  const raw = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON in response');
+  return JSON.parse(raw.slice(start, end + 1));
 }
 
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
+    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' });
     return res.end();
   }
 
@@ -155,8 +171,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 401, 'application/json', JSON.stringify({ error: 'Unauthorized' }));
     }
     try {
-      const body = await parseBody(req);
-      const data = await runAgenticBrief(body.prompt || '');
+      const data = await generateBrief();
       return send(res, 200, 'application/json', JSON.stringify(data));
     } catch(e) {
       console.error('Brief error:', e.message);
@@ -179,5 +194,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log('GIB Server running on port ' + PORT);
   console.log('API Key: ' + (ANTHROPIC_API_KEY ? 'SET' : 'MISSING'));
-  console.log('Password: ' + (ACCESS_PASSWORD !== 'changeme' ? 'CUSTOM' : 'DEFAULT - please change'));
+  console.log('Password: ' + (ACCESS_PASSWORD !== 'changeme' ? 'CUSTOM' : 'DEFAULT'));
 });
