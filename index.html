@@ -435,8 +435,30 @@ function showErr(msg){var el=document.getElementById('err');if(msg){el.textConte
 async function fetchBrief(){
   var r=await fetch('/brief',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({})});
   if(r.status===401){document.getElementById('gate').classList.remove('off');document.getElementById('rpt').style.display='none';throw new Error('Session expired.');}
+  if(r.status===503){var e=await r.json();throw new Error(e.error||'Brief is being generated — please wait 30 seconds and try again.');}
   if(!r.ok){var e=await r.json();throw new Error(e.error||'Server error');}
-  return await r.json();
+  var data=await r.json();
+  // Show cache time if available
+  if(data._cached_at){
+    var ct=new Date(data._cached_at);
+    var ts=ct.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+    document.getElementById('btime').textContent='Generated '+ts;
+  }
+  return data;
+}
+
+async function triggerRegenerate(){
+  var btn=document.getElementById('rbtn');
+  btn.textContent='⏳ Generating...';btn.disabled=true;
+  showErr('');
+  try{
+    await fetch('/regenerate',{method:'POST',credentials:'include'});
+    showErr('Brief regenerating — this takes ~30 seconds. Click Refresh when ready.');
+    document.getElementById('err').style.background='#0a1f3a';
+    document.getElementById('err').style.color='#c9a84c';
+    document.getElementById('err').style.border='1px solid #3a2e14';
+  }catch(e){showErr(e.message);}
+  finally{btn.textContent='↻ Refresh';btn.disabled=false;}
 }
 
 async function load(){
@@ -464,6 +486,12 @@ async function refresh(silent){
   catch(e){showErr(e.message);}
   finally{btn.textContent='↻ Refresh';btn.disabled=false;}
 }
+
+// Long-press or right-click refresh = force regenerate
+document.getElementById('rbtn').addEventListener('contextmenu',function(e){
+  e.preventDefault();
+  if(confirm('Force regenerate a fresh brief from the API? This takes ~30 seconds.')){triggerRegenerate();}
+});
 
 // ── DOCX ──
 function esc_xml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
