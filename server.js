@@ -9,7 +9,6 @@ const API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const PASSWORD = process.env.ACCESS_PASSWORD || 'changeme';
 const sessions = new Map();
 
-// ── CACHE ──
 let cachedBrief = null;
 let cacheTime = null;
 let generating = false;
@@ -33,6 +32,7 @@ function respond(res, status, type, body) {
   res.end(body);
 }
 
+// ── ANTHROPIC AGENTIC LOOP WITH WEB SEARCH ──
 function callAnthropic(body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
@@ -46,36 +46,93 @@ function callAnthropic(body) {
         'anthropic-version': '2023-06-01',
         'content-length': Buffer.byteLength(payload)
       },
-      timeout: 120000
+      timeout: 180000
     }, res => {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => resolve({ status: res.statusCode, body: d }));
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Anthropic request timed out')); });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Anthropic timeout')); });
     req.write(payload);
     req.end();
   });
 }
 
-async function generateBrief() {
-  if (generating) {
-    console.log('Generation already in progress, skipping.');
-    return;
+async function runWithSearch(systemPrompt, userPrompt) {
+  const messages = [{ role: 'user', content: userPrompt }];
+  const tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+
+  for (let turn = 0; turn < 20; turn++) {
+    const result = await callAnthropic({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 8000,
+      system: systemPrompt,
+      tools,
+      messages
+    });
+
+    if (result.status !== 200) {
+      const e = JSON.parse(result.body);
+      throw new Error(e.error ? e.error.message : 'API error ' + result.status);
+    }
+
+    const resp = JSON.parse(result.body);
+    messages.push({ role: 'assistant', content: resp.content });
+
+    const toolUses = resp.content.filter(b => b.type === 'tool_use');
+
+    if (toolUses.length === 0 || resp.stop_reason === 'end_turn') {
+      // Extract final JSON from text blocks
+      const raw = resp.content.filter(b => b.type === 'text').map(b => b.text).join('');
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON in final response');
+      return JSON.parse(raw.slice(start, end + 1));
+    }
+
+    // Feed tool results back
+    const toolResults = toolUses.map(tu => ({
+      type: 'tool_result',
+      tool_use_id: tu.id,
+      content: tu.content ? JSON.stringify(tu.content) : '[]'
+    }));
+    messages.push({ role: 'user', content: toolResults });
   }
+
+  throw new Error('Max search turns reached');
+}
+
+async function generateBrief() {
+  if (generating) { console.log('Already generating, skipping.'); return; }
   generating = true;
-  console.log('Generating brief at', new Date().toISOString());
+  console.log('Starting brief generation at', new Date().toISOString());
 
   const date = new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
-  const prompt = `You are a senior intelligence analyst producing a daily Global Intelligence Brief for ${date}.
+  const system = `You are a senior intelligence analyst producing a daily Global Intelligence Brief for ${date}.
+Your job is to search the web for REAL, CURRENT, SPECIFIC intelligence — then synthesize it into a structured JSON brief.
+Use multiple targeted web searches to gather today's actual news. Search for specific events, named actors, real numbers.
+Do NOT produce generic or placeholder content. Every item must be grounded in something you actually found via search.
+After all searches are complete, return ONLY valid JSON — no markdown, no code fences, start with { end with }.`;
 
-CRITICAL REQUIREMENT: Every piece of intelligence must be REAL, SPECIFIC, and CURRENT. No generic placeholders. Use actual named events, real countries, real threat actors, real CVE numbers, real market prices from today. If you are uncertain of exact current prices, use your best knowledge and note approximate.
+  const prompt = `Search the web systematically for today's intelligence across these domains, then produce the brief.
 
-Return ONLY valid JSON starting with { and ending with }. No markdown, no code fences, no explanation.
+REQUIRED SEARCHES — run ALL of these:
+1. "breaking news today ${date}" — top global story right now
+2. "Iran Strait of Hormuz war update today" — current status of US-Iran conflict
+3. "Ukraine Russia war update today" — latest military developments  
+4. "geopolitical news today ${date}" — other major global flashpoints
+5. "CISA KEV vulnerabilities today" OR "cybersecurity threat news today" — active cyber threats
+6. "S&P 500 Nasdaq stock market today" — equity market levels and moves
+7. "oil price gold price today" — commodity prices
+8. "diplomatic news UN Security Council today" — diplomatic developments
+9. "China Taiwan South China Sea news today" — Asia-Pacific tensions
+10. "Africa Middle East conflict news today" — regional developments
+
+After completing all searches, synthesize findings into this exact JSON schema:
 
 {
   "date": "${date}",
@@ -88,153 +145,141 @@ Return ONLY valid JSON starting with { and ending with }. No markdown, no code f
     "supply": "CRITICAL|HIGH|MEDIUM|WATCH"
   },
   "situation": {
-    "breaking": "REAL breaking news story with specific country/actor/event name. 2 sentences.",
-    "headline": "REAL lead geopolitical story with specific named parties. 2 sentences.",
-    "diplomacy": "REAL diplomatic development with named countries/leaders. 2 sentences.",
-    "cyber": "REAL active cyber threat with specific named threat actor or CVE. 2 sentences."
+    "breaking": "Real breaking story with named actors, specific event, and consequence. 2 sentences.",
+    "headline": "Real lead geopolitical story with named countries/leaders. 2 sentences.",
+    "diplomacy": "Real diplomatic development with named parties and specific context. 2 sentences.",
+    "cyber": "Real active cyber threat with named actor/CVE and targeted sector. 2 sentences."
   },
   "geo": {
-    "score": "HIGH",
+    "score": "CRITICAL|HIGH|MEDIUM|WATCH",
     "stories": [
-      {"n": 1, "title": "Specific Real Story Title", "body": "2-3 sentences with named actors, locations, dates."},
-      {"n": 2, "title": "Specific Real Story Title", "body": "2-3 sentences with named actors, locations, dates."},
-      {"n": 3, "title": "Specific Real Story Title", "body": "2-3 sentences with named actors, locations, dates."},
-      {"n": 4, "title": "Specific Real Story Title", "body": "2-3 sentences with named actors, locations, dates."},
-      {"n": 5, "title": "Specific Real Story Title", "body": "2-3 sentences with named actors, locations, dates."}
+      {"n": 1, "title": "Real specific story title", "body": "Named actors, locations, dates, specific developments. 2-3 sentences.", "confidence": "HIGH|MODERATE|LOW"},
+      {"n": 2, "title": "Real specific story title", "body": "Named actors, locations, dates, specific developments. 2-3 sentences.", "confidence": "HIGH|MODERATE|LOW"},
+      {"n": 3, "title": "Real specific story title", "body": "Named actors, locations, dates, specific developments. 2-3 sentences.", "confidence": "HIGH|MODERATE|LOW"},
+      {"n": 4, "title": "Real specific story title", "body": "Named actors, locations, dates, specific developments. 2-3 sentences.", "confidence": "HIGH|MODERATE|LOW"},
+      {"n": 5, "title": "Real specific story title", "body": "Named actors, locations, dates, specific developments. 2-3 sentences.", "confidence": "HIGH|MODERATE|LOW"}
     ],
-    "note_title": "Analytical headline",
-    "note": "2-3 sentence strategic assessment grounded in the actual stories above."
+    "note_title": "Analytical assessment title",
+    "note": "Strategic synthesis of above stories. 2-3 sentences."
   },
   "cyber": {
-    "score": "HIGH",
+    "score": "CRITICAL|HIGH|MEDIUM|WATCH",
     "threats": [
-      {"actor": "Real named threat actor or CVE ID", "tactic": "Specific real attack method", "target": "Real targeted sector or org", "level": "CRITICAL"},
-      {"actor": "Real named threat actor or CVE ID", "tactic": "Specific real attack method", "target": "Real targeted sector or org", "level": "HIGH"},
-      {"actor": "Real named threat actor or CVE ID", "tactic": "Specific real attack method", "target": "Real targeted sector or org", "level": "HIGH"},
-      {"actor": "Real named threat actor or CVE ID", "tactic": "Specific real attack method", "target": "Real targeted sector or org", "level": "HIGH"},
-      {"actor": "Real named threat actor or CVE ID", "tactic": "Specific real attack method", "target": "Real targeted sector or org", "level": "MEDIUM"}
+      {"actor": "Real named threat actor or CVE-ID", "tactic": "Specific real attack method", "target": "Real targeted sector or organization", "level": "CRITICAL", "confidence": "HIGH"},
+      {"actor": "Real named threat actor or CVE-ID", "tactic": "Specific real attack method", "target": "Real targeted sector or organization", "level": "HIGH", "confidence": "HIGH"},
+      {"actor": "Real named threat actor or CVE-ID", "tactic": "Specific real attack method", "target": "Real targeted sector or organization", "level": "HIGH", "confidence": "MODERATE"},
+      {"actor": "Real named threat actor or CVE-ID", "tactic": "Specific real attack method", "target": "Real targeted sector or organization", "level": "HIGH", "confidence": "MODERATE"},
+      {"actor": "Real named threat actor or CVE-ID", "tactic": "Specific real attack method", "target": "Real targeted sector or organization", "level": "MEDIUM", "confidence": "HIGH"}
     ],
     "themes": [
-      "Specific analytical theme based on real threats above.",
-      "Specific analytical theme based on real threats above.",
-      "Specific analytical theme based on real threats above."
+      "Specific analytical theme grounded in above threats.",
+      "Specific analytical theme grounded in above threats.",
+      "Specific analytical theme grounded in above threats."
     ],
-    "note_title": "Analytical headline",
-    "note": "2-3 sentence assessment of today's cyber threat landscape."
+    "note_title": "Cyber threat assessment title",
+    "note": "Strategic assessment of today's cyber landscape. 2-3 sentences."
   },
   "markets": {
-    "score": "MEDIUM",
+    "score": "CRITICAL|HIGH|MEDIUM|WATCH",
     "assets": [
-      {"name": "S&P 500", "price": "real approximate price", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "Brent Crude", "price": "real approximate price", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "Gold", "price": "real approximate price", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "US 10-Yr Treasury", "price": "real approximate yield", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "Bitcoin", "price": "real approximate price", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "USD/EUR", "price": "real approximate rate", "context": "1 sentence real context", "trend": "up|down|flat"},
-      {"name": "VIX", "price": "real approximate level", "context": "1 sentence real context", "trend": "up|down|flat"}
+      {"name": "S&P 500", "price": "actual level from search", "context": "what drove today's move", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "Nasdaq", "price": "actual level from search", "context": "what drove today's move", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "Brent Crude", "price": "actual $/bbl from search", "context": "what drove today's move", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "Gold", "price": "actual $/oz from search", "context": "what drove today's move", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "VIX", "price": "actual level from search", "context": "what this signals", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "Bitcoin", "price": "actual price from search", "context": "market positioning context", "trend": "up|down|flat", "confidence": "HIGH"},
+      {"name": "DXY (USD Index)", "price": "actual level from search", "context": "dollar strength context", "trend": "up|down|flat", "confidence": "HIGH"}
     ],
     "signals": [
-      "Real specific market signal or economic development.",
-      "Real specific market signal or economic development.",
-      "Real specific market signal or economic development."
+      "Real specific market signal with numbers from today's search.",
+      "Real specific market signal with numbers from today's search.",
+      "Real specific market signal with numbers from today's search."
     ],
-    "note_title": "Analytical headline",
-    "note": "2-3 sentence assessment of current market conditions."
+    "note_title": "Market assessment title",
+    "note": "What today's market moves actually mean. 2-3 sentences."
   },
   "watch": [
-    {"item": "Specific real watch item with named parties", "why": "2 sentences explaining real stakes and timeline.", "priority": "CRITICAL"},
-    {"item": "Specific real watch item with named parties", "why": "2 sentences explaining real stakes and timeline.", "priority": "HIGH"},
-    {"item": "Specific real watch item with named parties", "why": "2 sentences explaining real stakes and timeline.", "priority": "HIGH"},
-    {"item": "Specific real watch item with named parties", "why": "2 sentences explaining real stakes and timeline.", "priority": "MEDIUM"},
-    {"item": "Specific real watch item with named parties", "why": "2 sentences explaining real stakes and timeline.", "priority": "WATCH"}
+    {"item": "Specific named watch item with parties/dates", "why": "Specific stakes and timeline from search findings. 2 sentences.", "priority": "CRITICAL", "confidence": "HIGH"},
+    {"item": "Specific named watch item with parties/dates", "why": "Specific stakes and timeline from search findings. 2 sentences.", "priority": "CRITICAL", "confidence": "HIGH"},
+    {"item": "Specific named watch item with parties/dates", "why": "Specific stakes and timeline from search findings. 2 sentences.", "priority": "HIGH", "confidence": "MODERATE"},
+    {"item": "Specific named watch item with parties/dates", "why": "Specific stakes and timeline from search findings. 2 sentences.", "priority": "HIGH", "confidence": "MODERATE"},
+    {"item": "Specific named watch item with parties/dates", "why": "Specific stakes and timeline from search findings. 2 sentences.", "priority": "WATCH", "confidence": "HIGH"}
   ],
-  "sources": "Reuters, AP, Bloomberg, CISA KEV, Financial Times, OSINT"
+  "sources": "List the actual sources found in your searches"
 }`;
 
   try {
-    const result = await callAnthropic({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 5000,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    if (result.status !== 200) {
-      const e = JSON.parse(result.body);
-      throw new Error(e.error ? e.error.message : 'API error ' + result.status);
-    }
-
-    const resp = JSON.parse(result.body);
-    const raw = (resp.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('No JSON in response');
-
-    cachedBrief = JSON.parse(raw.slice(start, end + 1));
+    const data = await runWithSearch(system, prompt);
+    cachedBrief = data;
     cacheTime = new Date();
     console.log('Brief generated successfully at', cacheTime.toISOString());
   } catch(e) {
-    console.error('Brief generation failed:', e.message);
+    console.error('Generation failed:', e.message);
   } finally {
     generating = false;
   }
 }
 
-// Generate on startup, then every 4 hours
+// Generate on startup, refresh every 4 hours
 generateBrief();
 setInterval(generateBrief, 4 * 60 * 60 * 1000);
 
-// ── SERVER ──
+// ── HTTP SERVER ──
 http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
+    res.writeHead(204, {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type'});
     return res.end();
   }
 
-  // Login
   if (url === '/login' && req.method === 'POST') {
     const b = await parseBody(req);
     if (b.password === PASSWORD) {
       const token = crypto.randomBytes(32).toString('hex');
       sessions.set(token, Date.now());
-      for (const [k, v] of sessions) if (Date.now() - v > 86400000) sessions.delete(k);
+      for (const [k,v] of sessions) if (Date.now()-v > 86400000) sessions.delete(k);
       res.setHeader('Set-Cookie', `gib2=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`);
-      return respond(res, 200, 'application/json', JSON.stringify({ ok: true }));
+      return respond(res, 200, 'application/json', JSON.stringify({ok:true}));
     }
-    return respond(res, 401, 'application/json', JSON.stringify({ ok: false }));
+    return respond(res, 401, 'application/json', JSON.stringify({ok:false}));
   }
 
-  // Auth check
   if (url === '/authcheck') {
-    return respond(res, 200, 'application/json', JSON.stringify({ ok: authed(req) }));
+    return respond(res, 200, 'application/json', JSON.stringify({ok: authed(req)}));
   }
 
-  // Serve cached brief
   if (url === '/brief' && req.method === 'POST') {
-    if (!authed(req)) return respond(res, 401, 'application/json', JSON.stringify({ error: 'Unauthorized' }));
+    if (!authed(req)) return respond(res, 401, 'application/json', JSON.stringify({error:'Unauthorized'}));
     if (cachedBrief) {
       return respond(res, 200, 'application/json', JSON.stringify({
         ...cachedBrief,
-        _cached_at: cacheTime ? cacheTime.toISOString() : null
+        _cached_at: cacheTime ? cacheTime.toISOString() : null,
+        _generating: generating
       }));
     }
-    // Brief not ready yet — still generating on startup
-    return respond(res, 503, 'application/json', JSON.stringify({ error: 'Brief is being generated, please try again in 30 seconds.' }));
+    return respond(res, 503, 'application/json', JSON.stringify({
+      error: generating
+        ? 'Brief is being generated with live web search — this takes 60-90 seconds. Please refresh in a moment.'
+        : 'Brief not available. Please try again shortly.'
+    }));
   }
 
-  // Manual refresh trigger (forces new generation)
   if (url === '/regenerate' && req.method === 'POST') {
-    if (!authed(req)) return respond(res, 401, 'application/json', JSON.stringify({ error: 'Unauthorized' }));
-    generateBrief(); // fire and forget
-    return respond(res, 200, 'application/json', JSON.stringify({ ok: true, message: 'Regenerating brief, check back in 30 seconds.' }));
+    if (!authed(req)) return respond(res, 401, 'application/json', JSON.stringify({error:'Unauthorized'}));
+    if (generating) return respond(res, 200, 'application/json', JSON.stringify({ok:true, message:'Already generating.'}));
+    generateBrief();
+    return respond(res, 200, 'application/json', JSON.stringify({ok:true, message:'Regenerating brief with live web search. Ready in ~90 seconds.'}));
   }
 
-  // Serve HTML
+  if (url === '/status') {
+    return respond(res, 200, 'application/json', JSON.stringify({
+      cached: !!cachedBrief,
+      generating,
+      cached_at: cacheTime ? cacheTime.toISOString() : null
+    }));
+  }
+
   if (url === '/' || url === '/index.html') {
     try {
       const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
@@ -247,7 +292,7 @@ http.createServer(async (req, res) => {
   respond(res, 404, 'text/plain', 'Not found');
 
 }).listen(PORT, () => {
-  console.log('GIB Server running on port ' + PORT);
-  console.log('API key:', API_KEY ? 'SET' : 'MISSING - set ANTHROPIC_API_KEY env var');
-  console.log('Password:', PASSWORD !== 'changeme' ? 'CUSTOM' : 'WARNING: using default password');
+  console.log('GIB Server v3 running on port ' + PORT);
+  console.log('API key:', API_KEY ? 'SET' : 'MISSING');
+  console.log('Password:', PASSWORD !== 'changeme' ? 'CUSTOM' : 'DEFAULT - change this');
 });
