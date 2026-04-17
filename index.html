@@ -123,6 +123,10 @@ body{background:var(--navy);color:var(--text);font-family:'IBM Plex Sans',sans-s
 .bh{background:var(--highbg);color:#e67e22;border:1px solid #4a2a08;}
 .bm{background:var(--medbg);color:#27ae60;border:1px solid #0a3018;}
 .bw{background:var(--watchbg);color:#3498db;border:1px solid #0a2540;}
+.conf{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:0.06em;color:var(--dim);margin-left:5px;}
+.conf-HIGH{color:#27ae60;}.conf-MOD{color:#e67e22;}.conf-LOW{color:#e74c3c;}
+.gen-banner{background:#0a1f12;border:1px solid #27ae60;color:#27ae60;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;margin-bottom:14px;display:none;border-radius:2px;animation:fadepulse 2s infinite;}
+@keyframes fadepulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
 
 /* TREND */
 .tu{color:#27ae60;font-weight:600;}
@@ -224,6 +228,7 @@ body{background:var(--navy);color:var(--text);font-family:'IBM Plex Sans',sans-s
 <div class="page">
 <div id="rpt">
   <div class="errbanner" id="err"></div>
+  <div class="gen-banner" id="genbanner">⟳ Fresh brief being generated with live web search — check back in ~90 seconds and click Refresh.</div>
 
   <div class="rhdr">
     <div class="rtitle">GLOBAL INTELLIGENCE BRIEF</div>
@@ -320,6 +325,7 @@ function tr(t){if(t==='up')return'<span class="tu">▲</span>';if(t==='down')ret
 function si(lbl,cls,txt){return'<div class="sititem"><div class="sitlbl '+cls+'">'+lbl+'</div><div class="sittxt">'+x(txt||'—')+'</div></div>';}
 function themeRow(t){return'<div class="trow"><span class="tbull">▸</span><span>'+x(t)+'</span></div>';}
 function setAnote(prefix,title,body){if(!title)return;document.getElementById(prefix+'anote').style.display='';document.getElementById(prefix+'atitle').textContent=title;document.getElementById(prefix+'abody').textContent=body||'';}
+function confBadge(c){if(!c)return'';var cls=c==='HIGH'?'conf-HIGH':c==='MODERATE'?'conf-MOD':'conf-LOW';return'<span class="conf '+cls+'">['+c+']</span>';}
 
 // ── RENDER ──
 function render(d){
@@ -351,10 +357,10 @@ function render(d){
   var gp=document.getElementById('gpill');
   gp.className='spill badge '+scCls(g.score);gp.textContent=g.score||'';
   document.getElementById('gtbody').innerHTML=(g.stories||[]).map(function(s){
-    return'<tr><td class="tn">'+x(String(s.n))+'</td><td class="tt">'+x(s.title)+'</td><td class="tb">'+x(s.body)+'</td></tr>';
+    return'<tr><td class="tn">'+x(String(s.n))+'</td><td class="tt">'+x(s.title)+confBadge(s.confidence)+'</td><td class="tb">'+x(s.body)+'</td></tr>';
   }).join('');
   document.getElementById('gcards').innerHTML=(g.stories||[]).map(function(s){
-    return'<div class="card"><div class="ctitle">'+x(String(s.n))+'. '+x(s.title)+'</div><div class="cbody">'+x(s.body)+'</div></div>';
+    return'<div class="card"><div class="ctitle">'+x(String(s.n))+'. '+x(s.title)+confBadge(s.confidence)+'</div><div class="cbody">'+x(s.body)+'</div></div>';
   }).join('');
   setAnote('g',g.note_title,g.note);
 
@@ -363,10 +369,10 @@ function render(d){
   var cp=document.getElementById('cpill');
   cp.className='spill badge '+scCls(c.score);cp.textContent=c.score||'';
   document.getElementById('ctbody').innerHTML=(c.threats||[]).map(function(t){
-    return'<tr><td class="ta">'+x(t.actor)+'</td><td class="tb">'+x(t.tactic)+'</td><td class="td">'+x(t.target)+'</td><td>'+bdg(t.level)+'</td></tr>';
+    return'<tr><td class="ta">'+x(t.actor)+'</td><td class="tb">'+x(t.tactic)+'</td><td class="td">'+x(t.target)+'</td><td>'+bdg(t.level)+confBadge(t.confidence)+'</td></tr>';
   }).join('');
   document.getElementById('ccards').innerHTML=(c.threats||[]).map(function(t){
-    return'<div class="card"><div class="cfoot" style="margin:0 0 7px;padding:0 0 7px;border-top:none;border-bottom:1px solid var(--border)"><div class="cactor">'+x(t.actor)+'</div>'+bdg(t.level)+'</div><div class="cbody">'+x(t.tactic)+'</div><div class="cbody" style="color:var(--dim);font-size:11px;margin-top:3px;">Target: '+x(t.target)+'</div></div>';
+    return'<div class="card"><div class="cfoot" style="margin:0 0 7px;padding:0 0 7px;border-top:none;border-bottom:1px solid var(--border)"><div class="cactor">'+x(t.actor)+'</div><div>'+bdg(t.level)+confBadge(t.confidence)+'</div></div><div class="cbody">'+x(t.tactic)+'</div><div class="cbody" style="color:var(--dim);font-size:11px;margin-top:3px;">Target: '+x(t.target)+'</div></div>';
   }).join('');
   document.getElementById('cthemes').innerHTML=(c.themes||[]).map(themeRow).join('');
   setAnote('c',c.note_title,c.note);
@@ -386,10 +392,10 @@ function render(d){
 
   // Watch
   document.getElementById('wtbody').innerHTML=(d.watch||[]).map(function(w){
-    return'<tr><td class="tt">'+x(w.item)+'</td><td class="tb">'+x(w.why)+'</td><td>'+bdg(w.priority)+'</td></tr>';
+    return'<tr><td class="tt">'+x(w.item)+'</td><td class="tb">'+x(w.why)+'</td><td>'+bdg(w.priority)+confBadge(w.confidence)+'</td></tr>';
   }).join('');
   document.getElementById('wcards').innerHTML=(d.watch||[]).map(function(w){
-    return'<div class="card"><div class="cfoot" style="margin:0 0 7px;padding:0 0 7px;border-top:none;border-bottom:1px solid var(--border)"><div class="ctitle">'+x(w.item)+'</div>'+bdg(w.priority)+'</div><div class="cbody">'+x(w.why)+'</div></div>';
+    return'<div class="card"><div class="cfoot" style="margin:0 0 7px;padding:0 0 7px;border-top:none;border-bottom:1px solid var(--border)"><div class="ctitle">'+x(w.item)+'</div><div>'+bdg(w.priority)+confBadge(w.confidence)+'</div></div><div class="cbody">'+x(w.why)+'</div></div>';
   }).join('');
 
   document.getElementById('rpt').style.display='block';
@@ -435,14 +441,21 @@ function showErr(msg){var el=document.getElementById('err');if(msg){el.textConte
 async function fetchBrief(){
   var r=await fetch('/brief',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({})});
   if(r.status===401){document.getElementById('gate').classList.remove('off');document.getElementById('rpt').style.display='none';throw new Error('Session expired.');}
-  if(r.status===503){var e=await r.json();throw new Error(e.error||'Brief is being generated — please wait 30 seconds and try again.');}
+  if(r.status===503){
+    var e=await r.json();
+    // Show the generating banner and auto-retry in 30s
+    document.getElementById('genbanner').style.display='block';
+    document.getElementById('rpt').style.display='block';
+    setTimeout(function(){refresh(true);},30000);
+    throw new Error(e.error||'Brief generating — auto-refreshing in 30 seconds.');
+  }
   if(!r.ok){var e=await r.json();throw new Error(e.error||'Server error');}
   var data=await r.json();
-  // Show cache time if available
+  document.getElementById('genbanner').style.display='none';
   if(data._cached_at){
     var ct=new Date(data._cached_at);
     var ts=ct.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
-    document.getElementById('btime').textContent='Generated '+ts;
+    document.getElementById('btime').textContent='Generated '+ts+(data._generating?' (updating...)':'');
   }
   return data;
 }
@@ -487,10 +500,12 @@ async function refresh(silent){
   finally{btn.textContent='↻ Refresh';btn.disabled=false;}
 }
 
-// Long-press or right-click refresh = force regenerate
+// Right-click refresh = force regenerate with live web search
 document.getElementById('rbtn').addEventListener('contextmenu',function(e){
   e.preventDefault();
-  if(confirm('Force regenerate a fresh brief from the API? This takes ~30 seconds.')){triggerRegenerate();}
+  if(confirm('Force regenerate a fresh brief with live web search?\nThis takes ~90 seconds. The page will auto-refresh when ready.')){
+    triggerRegenerate();
+  }
 });
 
 // ── DOCX ──
